@@ -2,6 +2,8 @@
 
 ![triangle](triangle.png)
 
+See it running here: https://pascal-so.github.io/webgl-fun/
+
 ## Requirements
 
 * python3 (for building glad)
