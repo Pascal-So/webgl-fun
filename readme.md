@@ -1,5 +1,7 @@
 # Multi-Platform Triangle Template
 
+![triangle](triangle.png)
+
 Not tested on Windows!
 
 ## Requirements
