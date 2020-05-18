@@ -41,12 +41,11 @@
 			};
 
 			window.onresize = function() {
-				canvas.width = window.innerWidth;
-				canvas.height = window.innerHeight;
+				GLFW.onCanvasResize(window.innerWidth, window.innerHeight)
 			};
 
 			(function() {
-				var memoryInitializer = 'app.js.mem';
+				var memoryInitializer = 'index.js.mem';
 				if (typeof Module['locateFile'] === 'function') {
 					memoryInitializer = Module['locateFile'](memoryInitializer);
 				} else if (Module['memoryInitializerPrefixURL']) {
