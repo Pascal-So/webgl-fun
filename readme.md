@@ -2,8 +2,6 @@
 
 ![triangle](triangle.png)
 
-Not tested on Windows!
-
 ## Requirements
 
 * python3 (for building glad)
