@@ -4,9 +4,13 @@
 #include <chrono>
 #include <cmath>
 
+#include "shader.hpp"
+
 #ifdef __EMSCRIPTEN__
 	#include <emscripten.h>
 #endif
+
+#define SHADERPROGRAM 1
 
 const char* vertexSource =
 	"#version 100                                 \n"
@@ -45,6 +49,15 @@ void key_callback(GLFWwindow* window, int key, int /* scancode */, int action, i
 
 void process_input(GLFWwindow* /* window */) {
 }
+
+#ifdef GL_DEBUG_TYPE_ERROR
+void GLAPIENTRY MessageCallback( GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                 const GLchar* message, const void* userParam ) {
+  fprintf( stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+           ( type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "" ),
+            type, severity, message );
+}
+#endif
 
 // state
 GLFWwindow* window;
@@ -102,7 +115,18 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, resize_callback);
 	glfwSetKeyCallback(window, key_callback);
 
+	#ifdef GL_DEBUG_OUTPUT
+	glEnable (GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(MessageCallback, 0);
+	#endif
 
+#ifdef SHADERPROGRAM
+	ShaderProgram shader;
+	if(!shader.compile("", vertexSource, "", fragmentSource))
+		return 0;
+	shader.bind();
+	shaderProgram = shader.getHandle();
+#else
 	unsigned int vertexShader;
 	vertexShader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertexShader, 1, &vertexSource, NULL);
@@ -143,7 +167,7 @@ int main() {
 	}
 
 	glUseProgram(shaderProgram);
-
+#endif
 	unsigned int VBO;
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);

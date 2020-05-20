@@ -18,7 +18,7 @@ include(FetchContent)
 # This step generates `glad.c` and `glad.h`, which are
 # then available as the cmake target `glad`.
 # The generated glad configuration is for OpenGL 3.3 without extensions.
-set(GLAD_API "gl=3.3" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
+set(GLAD_API "gl=4.6" CACHE STRING "API type/version pairs, like \"gl=3.2,gles=\", no version means latest")
 FetchContent_Declare(
 	glad
 	GIT_REPOSITORY https://github.com/Dav1dde/glad.git
@@ -31,7 +31,7 @@ if(NOT glad_POPULATED)
 endif()
 
 
-add_executable(triangle "src/main.cpp")
+add_executable(triangle "src/main.cpp" "src/shader.hpp" "src/shader.cpp")
 
 if (EMSCRIPTEN)
 	message(STATUS "Building for emscripten")
