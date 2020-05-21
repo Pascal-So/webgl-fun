@@ -31,7 +31,7 @@ if(NOT glad_POPULATED)
 endif()
 
 
-add_executable(triangle "src/main.cpp" "src/shader.hpp" "src/shader.cpp")
+add_executable(triangle "src/main.cpp" "src/shader.cpp")
 
 if (EMSCRIPTEN)
 	message(STATUS "Building for emscripten")
