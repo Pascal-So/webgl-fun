@@ -33,17 +33,22 @@ endif()
 
 add_executable(triangle "src/main.cpp")
 
+add_subdirectory(../turbotrack turbotrack)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
+target_link_libraries(triangle
+	glad
+	Eigen3::Eigen
+	turbotrack
+)
+
 if (EMSCRIPTEN)
 	message(STATUS "Building for emscripten")
 
 	set_target_properties(triangle PROPERTIES OUTPUT_NAME "index")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1 -s USE_WEBGL2=1 -s USE_GLFW=3")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -s WASM=1 -s USE_WEBGL2=1 -s USE_GLFW=3 -s LLD_REPORT_UNDEFINED")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -s ASSERTIONS=1 -s SAFE_HEAP=1" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -flto")
-
-	target_link_libraries(triangle
-		glad
-	)
 
 	configure_file("${CMAKE_CURRENT_LIST_DIR}/index.html" "${CMAKE_CURRENT_BINARY_DIR}/index.html" COPYONLY)
 else()
@@ -61,7 +66,8 @@ else()
 
 	target_link_libraries(triangle
 		glfw
-		glad
 		${CMAKE_DL_LIBS}
 	)
+
+	file(COPY "${CMAKE_CURRENT_LIST_DIR}/src/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 endif()

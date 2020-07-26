@@ -1,28 +1,51 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <Eigen/Dense>
 #include <iostream>
-#include <chrono>
 #include <cmath>
+#include <random>
+#include <turbotrack.hpp>
+#include <sstream>
+
+
+const int nr_vertices = 20000;
 
 #ifdef __EMSCRIPTEN__
 	#include <emscripten.h>
 #endif
 
-const char* vertexSource =
-	"#version 100                                 \n"
-	"attribute vec3 position;                     \n"
-	"varying vec3 col;                            \n"
-	"void main() {                                \n"
-	"  gl_Position = vec4(position.xyz, 1.0);     \n"
-	"  col = vec3(position.xyz);                  \n"
-	"}                                            \n";
-const char* fragmentSource =
-	"#version 100                                 \n"
-	"precision lowp float;                        \n"
-	"varying vec3 col;                            \n"
-	"void main() {                                \n"
-	"  gl_FragColor = vec4(col.x + 0.5, col.y + 0.5, 0.6, 1.); \n"
-	"}                                            \n";
+// const char* vertexSource =
+// 	"#version 100                                 \n"
+// 	"uniform mat4 viewmat;                     \n"
+// 	"uniform mat4 projmat;                     \n"
+// 	"attribute vec3 position;                     \n"
+// 	"varying vec3 col;                            \n"
+// 	"float v;                            \n"
+// 	"void main() {                                \n"
+// 	"  gl_Position = projmat * viewmat * vec4(position.xyz, 1.0);     \n"
+// 	// "  gl_Position /= gl_Position.z;     \n"
+// 	"  gl_PointSize = 1.;     \n"
+// 	"  v = -0.4 * gl_Position.z + 1.2;     \n"
+// 	"  col = vec3(v,v,v);                  \n"
+// 	"}                                            \n";
+// const char* fragmentSource =
+// 	"#version 100                                 \n"
+// 	"precision lowp float;                        \n"
+// 	"varying vec3 col;                            \n"
+// 	"void main() {                                \n"
+// 	// "  gl_FragColor = vec4(1., 1., 1., 1.); \n"
+// 	"  gl_FragColor = vec4(col, 1.); \n"
+// 	"}                                            \n";
+
+// void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+// 	const GLchar* message, const void* userParam) {
+// 	//if (type != GL_DEBUG_TYPE_ERROR) return;
+// 	fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = 0x%x, message = %s\n",
+// 		(type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : ""),
+// 		type, severity, message);
+// }
+// glEnable(GL_DEBUG_OUTPUT);
+// glDebugMessageCallback(MessageCallback, 0);
 
 void error_callback(int /* error */, const char* description) {
 	std::cerr << "Error: " << description << '\n';
@@ -43,38 +66,100 @@ void key_callback(GLFWwindow* window, int key, int /* scancode */, int action, i
 	}
 }
 
+bool mouse_down = false;
+Eigen::Vector2f last_mouse_pos;
+bool last_mouse_pos_set = false;
+Eigen::Quaternionf current_rot;
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == 0) {
+		switch (action) {
+		case GLFW_PRESS: {
+			mouse_down = true;
+			last_mouse_pos_set = false;
+			break;}
+		case GLFW_RELEASE: {
+			mouse_down = false;
+			break;}
+		}
+	}
+}
+
+void cursor_pos_callback(GLFWwindow* window, double xpos, double ypos) {
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+
+	int mindim = std::min(width, height);
+
+	float x = 2 * (xpos - width  / 2) / mindim;
+	float y = - 2 * (ypos - height / 2) / mindim;
+
+
+	if (mouse_down) {
+		Eigen::Vector2f new_mouse_pos(x, y);
+
+		if (last_mouse_pos_set) {
+			current_rot = turbotrack::mouse_move(last_mouse_pos, new_mouse_pos) * current_rot;
+		}
+
+		last_mouse_pos = new_mouse_pos;
+		last_mouse_pos_set = true;
+	}
+}
+
 void process_input(GLFWwindow* /* window */) {
 }
 
 // state
 GLFWwindow* window;
-float vertices[] = {
-	-0.5f, -0.5f, 0.0f,
-	 0.5f, -0.5f, 0.0f,
-	 0.0f,  0.5f, 0.0f
-};
 unsigned int VAO;
 unsigned int shaderProgram;
+int viewmat_location, projmat_location;
 
-std::chrono::time_point<std::chrono::steady_clock> time_start;
+Eigen::Matrix4f projection(float aspect, float near, float far, float d) {
+	const float nmf = near - far;
+
+	Eigen::Matrix4f m;
+	m <<
+		d / aspect, 0,                   0,                     0,
+		         0, d,                   0,                     0,
+		         0, 0,  (near + far) / nmf,  2 * near * far / nmf,
+		         0, 0,                  -1,                     0;
+
+	return m;
+}
 
 void iteration() {
 	process_input(window);
 
-	std::chrono::duration<double> time_elapsed = std::chrono::steady_clock::now() - time_start;
+	Eigen::Matrix4f viewmat;
+	viewmat <<
+		current_rot.toRotationMatrix(), Eigen::Vector3f::Zero(),
+		0, 0, 0, 1;
 
-	glClearColor(0.2f, 0.3f, 0.3f+0.1f*std::sin(time_elapsed.count()), 1.0f);
-	// glClearColor(0.f, 0.f, 0.f, 1.0f);
+	viewmat(2,3) = -2;
+
+	glUniformMatrix4fv(viewmat_location, 1, GL_FALSE, viewmat.data());
+
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+
+	Eigen::Matrix4f projmat = projection((float)width / height, 0.01, 100, 2.);
+	glUniformMatrix4fv(projmat_location, 1, GL_FALSE, projmat.data());
+
+
+	glClearColor(0.098f, 0.086f, 0.023f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	glUseProgram(shaderProgram);
 	glBindVertexArray(VAO);
-	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glDrawArrays(GL_POINTS, 0, nr_vertices);
 
 	glfwSwapBuffers(window);
 	glfwPollEvents();
 }
 
+const int window_init_width = 1000;
+const int window_init_height = 800;
 
 int main() {
 	glfwInit();
@@ -85,7 +170,7 @@ int main() {
 
 	glfwSetErrorCallback(error_callback);
 
-	window = glfwCreateWindow(600, 600, "LearnOpenGL", NULL, NULL);
+	window = glfwCreateWindow(window_init_width, window_init_height, "LearnOpenGL", NULL, NULL);
 	if (window == NULL) {
 		std::cerr << "Failed to create GLFW window\n";
 		glfwTerminate();
@@ -98,10 +183,15 @@ int main() {
 		return -1;
 	}
 
-	glViewport(0, 0, 600, 600);
+	current_rot = Eigen::Quaternionf(1, 0, 0, 0);
+
+	glViewport(0, 0, window_init_width, window_init_height);
 	glfwSetFramebufferSizeCallback(window, resize_callback);
 	glfwSetKeyCallback(window, key_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
+	glfwSetCursorPosCallback(window, cursor_pos_callback);
 
+	glEnable(GL_PROGRAM_POINT_SIZE);
 
 	unsigned int vertexShader;
 	vertexShader = glCreateShader(GL_VERTEX_SHADER);
@@ -150,15 +240,24 @@ int main() {
 	glBindVertexArray(VAO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
 	// copy data to buffer
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	std::vector<float> vertices (3 * nr_vertices);
+	std::mt19937 gen {0};
+	for (int i = 0; i < nr_vertices; ++i) {
+		std::normal_distribution<float> d{0,0.3};
+		const float x = d(gen);
+		const float y = d(gen);
+		vertices[3 * i + 0] = x;
+		vertices[3 * i + 1] = y;
+		vertices[3 * i + 2] = (x*x + y*y) / 3 - 0.2;
+	}
+	glBufferData(GL_ARRAY_BUFFER, 3 * nr_vertices * sizeof(float), vertices.data(), GL_STATIC_DRAW);
 
 	int attribute_location_position=glGetAttribLocation(shaderProgram, "position");
 	glVertexAttribPointer(attribute_location_position, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(attribute_location_position);
-
+	viewmat_location = glGetUniformLocation(shaderProgram, "viewmat");
+	projmat_location = glGetUniformLocation(shaderProgram, "projmat");
 	glBindVertexArray(0);
-
-	time_start = std::chrono::steady_clock::now();
 
 	#ifdef __EMSCRIPTEN__
 		emscripten_set_main_loop(iteration, 0, true);
