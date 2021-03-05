@@ -50,6 +50,8 @@ if (EMSCRIPTEN)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -s ASSERTIONS=1 -s SAFE_HEAP=1" )
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG -flto")
 
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --embed-file ../src/shaders@shaders/")
+
 	configure_file("${CMAKE_CURRENT_LIST_DIR}/index.html" "${CMAKE_CURRENT_BINARY_DIR}/index.html" COPYONLY)
 else()
 	message(STATUS "Building natively")
@@ -70,4 +72,5 @@ else()
 	)
 
 	file(COPY "${CMAKE_CURRENT_LIST_DIR}/src/shaders" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+	file(COPY "${CMAKE_CURRENT_LIST_DIR}/pointclouds" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
 endif()
